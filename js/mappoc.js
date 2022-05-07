@@ -2,10 +2,10 @@ var Map = {
     voronoi: new Voronoi(),
     diagram: null,
     margin: 0.0,
-    xsize: 1000,
-    ysize: 800,
+    xsize: 2000	,
+    ysize: 2000,
     canvas: null,
-    numberOfSites: 1500,
+    numberOfSites: 500,
     zoneToContains: [],
     edgeZoneIds: [],
     colorByZone: [],
@@ -21,7 +21,7 @@ var Map = {
     },
     numberOfZones: 24,
     sites: [],
-    consistency: 2,
+    consistency: 3,
     treemap: null,
     hoverColor: '#00ffff',
 
@@ -33,7 +33,6 @@ var Map = {
         Map.bbox.yb = Map.ysize;
         mapframe.setAttribute("width", Map.xsize);
         mapframe.setAttribute("height", Map.ysize);
-
 
         this.zoneToContains = [];
         this.edgeZoneIds = [];
@@ -70,7 +69,26 @@ var Map = {
         this.assignEdgeZones();
         this.assignWater();
         this.assignPoliticalEdges();
-        this.renderPoliticalView();
+        
+        this.renderOnlyPolticalBounds = false;
+        this.renderMapBorder();
+        this.setCellColors(null, '#333', null);
+
+        //this.renderPoliticalView();
+        //this.renderVoronoiView();
+
+        for(var cellId=0; cellId < this.getCellCount(); cellId++ ) {
+            var cell = this.getCellForId( cellId );
+            if( cell != null && cell.zone != null ) {
+                cell.cellColor = this.colorByZone[cell.zone];
+                //cell.siteColor = this.colorByZone[cell.zone];
+                if(cell.water) {
+                    cell.cellColor = "#91D0EF";
+                    //cell.siteColor = "#91D0EF";
+                }
+            }
+        }
+        this.renderAllCells();
     },
 
     saveImage: function() {
@@ -243,7 +261,6 @@ var Map = {
         }
     },
 
-
     renderStainedGlassView: function() {
         this.renderMapBorder();
         this.renderOnlyPolticalBounds = false;
@@ -338,7 +355,6 @@ var Map = {
     // merge two arrays purging duplicates, 
     // this is lazy, no shame.
     mergeArray: function(a, b) {
-
         var x = {};
         var res = [];
 
@@ -585,11 +601,12 @@ var Map = {
         y -= canvas.offsetTop;
         cellid = this.cellIdFromPoint(x, y);
 
-        var str = "(" + x + "," + y + ") = " + cellid + "-- ";
-        if(cellid != null)
-        {
-            str += this.getCellForId(cellid).zone;
+        var str = "Coordinates=(" + x + "," + y + "), Cell=" + cellid;
+        if(cellid != null) {
+        	str += ", Zone=" + this.getCellForId(cellid).zone;
+			str += ", Adjacents: " + this.findAdjacentCells(cellid).join(", ");            
         }
+        
         document.getElementById('voronoiCellId').innerHTML = str;
     },
 
@@ -646,11 +663,11 @@ var Map = {
         if(cell.edgeColor == null) {
             return;
         }
+        
         var drawingContext = this.canvas.getContext('2d');
         drawingContext.globalAlpha = 1;
         var halfedges = cell.halfedges;
         var nHalfedges = halfedges.length;
-
 
         // Cell outline for political bounds
         for (var iHalfedge = 0; iHalfedge < nHalfedges; iHalfedge++) {
@@ -691,8 +708,10 @@ var Map = {
         if (!cell) {
             return;
         }
+        
         var drawingContext = this.canvas.getContext('2d');
         drawingContext.globalAlpha = 1;
+        
         // edges
         drawingContext.beginPath();
         var halfedges = cell.halfedges;
@@ -711,11 +730,18 @@ var Map = {
         drawingContext.stroke();
         
         // site
-        v = cell.site;
-        drawingContext.fillStyle = siteColor;
-        drawingContext.beginPath();
-        drawingContext.rect(v.x - 2 / 3, v.y - 2 / 3, 2, 2);
-        drawingContext.fill();
+        if (!cell.water) {
+	        v = cell.site;
+	        drawingContext.fillStyle = siteColor;
+	        drawingContext.beginPath();
+	        drawingContext.rect(v.x - 2 / 3, v.y - 2 / 3, 2, 2);
+	        drawingContext.fill();
+	                
+	        drawingContext.fillStyle = "#000000";
+			drawingContext.font = "12px Calibri";
+			drawingContext.fillText("C" + cell.site.voronoiId, v.x-25, v.y-5);
+			drawingContext.fillText("Z" + cell.zone, v.x-25, v.y+5);
+		}
     },
 
     renderMapBorder: function() {
@@ -734,25 +760,6 @@ var Map = {
 window.onload = function() {
   var map = Map;
   map.generate();
-
-
-  var gui = new dat.GUI();
-  gui.add(map, 'numberOfSites', 15, 8000);
-  gui.add(map, 'chanceOfWater', 0, 100);
-  gui.add(map, 'numberOfZones', 4, 200);
-  gui.add(map, 'consistency', 0, 30);
-  gui.add(map, 'generate');
-  gui.add(map, 'saveImage');
-  gui.add(map, 'xsize',300,1920);
-  gui.add(map, 'ysize',600,1080);
-  var viewFolder = gui.addFolder('Alternate Views');
-  viewFolder.add(map, 'renderVoronoiView');
-  viewFolder.add(map, 'renderStainedGlassView');
-  viewFolder.add(map, 'renderZoneView');
-  viewFolder.add(map, 'renderGriddedView');
-  viewFolder.add(map, 'renderGriddedPoliticalView');
-  viewFolder.add(map, 'renderPoliticalView');
-  viewFolder.open();
 };
 
 window.onmousemove=Map.cellUnderMouse.bind(Map);
